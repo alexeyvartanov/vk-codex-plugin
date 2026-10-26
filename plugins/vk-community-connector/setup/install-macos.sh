@@ -30,11 +30,18 @@ find_python() {
   return 1
 }
 
-[ "$STAGE" = "prepare" ] || [ "$STAGE" = "finish" ] || stop "первый параметр должен быть prepare или finish"
-REF="$(echo "$REF" | tr -d '[:space:]')"
-[ -n "$REF" ] || stop "не указана ссылка или ID сообщества"
+case "$STAGE" in prepare|finish|send-on|send-off) ;; *) stop "первый параметр: prepare, finish, send-on или send-off" ;; esac
 
 PY="$(find_python)" || stop "Python 3 не найден. Выполните в Терминале: xcode-select --install, дождитесь окончания установки и повторите"
+
+if [ "$STAGE" = "send-on" ] || [ "$STAGE" = "send-off" ]; then
+  [ -f "$ROOT/setup_helper.py" ] || stop "сначала подключите сообщество"
+  PYTHONIOENCODING=utf-8 "$PY" "$ROOT/setup_helper.py" --send "${STAGE#send-}" "$ROOT" || stop "не удалось изменить режим отправки"
+  exit 0
+fi
+
+REF="$(echo "$REF" | tr -d '[:space:]')"
+[ -n "$REF" ] || stop "не указана ссылка или ID сообщества"
 echo "Python: $PY"
 
 if [ "$STAGE" = "prepare" ]; then

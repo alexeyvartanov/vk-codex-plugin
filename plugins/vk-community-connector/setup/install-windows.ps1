@@ -1,8 +1,7 @@
 param(
-  [ValidateSet('prepare', 'finish')]
+  [ValidateSet('prepare', 'finish', 'send-on', 'send-off')]
   [string]$Stage = 'prepare',
-  [Parameter(Mandatory = $true)]
-  [string]$Ref
+  [string]$Ref = ''
 )
 
 $ErrorActionPreference = 'Stop'
@@ -76,6 +75,14 @@ function Ensure-Python {
 }
 
 try {
+  if ($Stage -eq 'send-on' -or $Stage -eq 'send-off') {
+    $py = Ensure-Python
+    $helper = Join-Path $Root 'setup_helper.py'
+    if (-not (Test-Path $helper)) { Stop-Install 'сначала подключите сообщество' }
+    & $py $helper --send ($Stage.Substring(5)) $Root
+    if ($LASTEXITCODE -ne 0) { Stop-Install 'не удалось изменить режим отправки' }
+    return
+  }
   if ([string]::IsNullOrWhiteSpace($Ref)) { Stop-Install 'не указана ссылка или ID сообщества' }
   $Ref = $Ref.Trim()
   $py = Ensure-Python

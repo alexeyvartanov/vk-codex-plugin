@@ -62,6 +62,14 @@ def explain(exc: Exception) -> str:
     return text
 
 
+def conn_send(root: pathlib.Path, cid: str) -> bool:
+    try:
+        data = json.loads((root / "config" / "connections.json").read_text(encoding="utf-8-sig"))
+        return any(c.get("id") == cid and c.get("allow_writes") for c in data.get("connections", []))
+    except (OSError, ValueError):
+        return False
+
+
 def connection_id(group: dict) -> str:
     name = str(group.get("screen_name") or "").lower()
     name = re.sub(r"[^a-z0-9_-]", "", name)
@@ -77,6 +85,11 @@ def update_connections(root: pathlib.Path, conn: dict) -> None:
         except ValueError:
             shutil.copy2(path, path.with_suffix(".json.broken"))
             data = {"connections": []}
+    for old in data.get("connections", []):
+        if isinstance(old, dict) and old.get("id") == conn["id"]:
+            for key in ("allow_writes", "allowed_write_methods"):
+                if key in old:
+                    conn[key] = old[key]
     items = [c for c in data.get("connections", []) if isinstance(c, dict) and c.get("id") != conn["id"]]
     items.append(conn)
     data["connections"] = items
@@ -130,7 +143,33 @@ def update_codex_config(python_exe: str, server: pathlib.Path) -> pathlib.Path:
     return cfg
 
 
+def set_send(root: pathlib.Path, mode: str) -> None:
+    """Включить или выключить отправку сообщений для всех подключений."""
+    path = root / "config" / "connections.json"
+    if not path.exists():
+        fail("подключений ещё нет: сначала подключите сообщество")
+    data = json.loads(path.read_text(encoding="utf-8-sig"))
+    on = mode == "on"
+    for conn in data.get("connections", []):
+        if not isinstance(conn, dict):
+            continue
+        conn["allow_writes"] = on
+        if on:
+            conn["allowed_write_methods"] = ["messages.send", "messages.markAsRead"]
+        else:
+            conn.pop("allowed_write_methods", None)
+    path.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    if on:
+        say("Отправка сообщений включена. Codex будет спрашивать разрешение на каждое сообщение.")
+    else:
+        say("Отправка выключена. Codex только читает и пишет черновики.")
+
+
 def main() -> None:
+    if len(sys.argv) >= 3 and sys.argv[1] == "--send":
+        root = pathlib.Path(sys.argv[3]).resolve() if len(sys.argv) > 3 else pathlib.Path.home() / "vk-mcp"
+        set_send(root, sys.argv[2])
+        return
     root = pathlib.Path(sys.argv[1]).resolve()
     ref = sys.argv[2].strip()
     token_file = pathlib.Path(sys.argv[3]).expanduser() if len(sys.argv) > 3 else None
@@ -187,7 +226,7 @@ def main() -> None:
         "allow_writes": False,
         "enabled": True,
     })
-    say("Подключение записано. Запись в ВК выключена, только чтение.")
+    say("Подключение записано." + (" Отправка сообщений включена (с подтверждением)." if conn_send(root, cid) else " Пока только чтение и черновики."))
 
     if not os.environ.get("VK_INSTALL_TEST"):
         server = load_server(root)

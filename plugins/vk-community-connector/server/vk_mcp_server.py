@@ -66,6 +66,12 @@ def is_write(method: str) -> bool:
     return not method.split(".", 1)[1].startswith(READ_PREFIXES)
 
 
+# Что можно отправлять, когда для подключения включена запись (allow_writes).
+# Остальные методы записи (посты, баны, execute и т.п.) нужно перечислить явно
+# в allowed_write_methods подключения, "*" разрешает всё.
+DEFAULT_WRITE_METHODS = ("messages.send", "messages.markAsRead")
+
+
 def config() -> dict[str, Any]:
     data = _json(CONFIG_PATH, {})
     return data if isinstance(data, dict) else {}
@@ -223,8 +229,17 @@ def call_tool(name: str, args: dict[str, Any]) -> dict[str, Any]:
         if accepted and token_type not in accepted and "open" not in accepted:
             raise ValueError(f"Метод {method_name} допускает типы токенов {accepted}, а подключение отмечено как {token_type}")
         if write and not item.get("allow_writes", False):
-            raise ValueError("Запись отключена для этого подключения: allow_writes=false")
-        return tool_result(api_call(method_name, dict(args.get("params", {})), token_for(item)))
+            raise ValueError("Отправка выключена для этого подключения. Включить её может навык «Подключи ВК» (режим отправки с подтверждением).")
+        if write:
+            allowed = item.get("allowed_write_methods") or list(DEFAULT_WRITE_METHODS)
+            if "*" not in allowed and method_name not in allowed:
+                raise ValueError(f"Метод {method_name} не входит в разрешённые для записи: {', '.join(allowed)}")
+        params = dict(args.get("params", {}))
+        if method_name == "messages.send" and "random_id" not in params:
+            # ВКонтакте требует random_id, иначе отказывает или может отправить дубль.
+            import secrets
+            params["random_id"] = secrets.randbelow(2**31 - 1) + 1
+        return tool_result(api_call(method_name, params, token_for(item)))
     raise ValueError(f"Неизвестный MCP-инструмент: {name}")
 
 
@@ -235,7 +250,7 @@ TOOLS = [
     {"name": "vk_check_connection", "description": "Проверка токена и сообщества.", "inputSchema": {"type": "object", "properties": {"connection_id": {"type": "string"}}, "required": ["connection_id"]}},
     {"name": "vk_get_capabilities", "description": "Проверка безопасных возможностей конкретного токена.", "inputSchema": {"type": "object", "properties": {"connection_id": {"type": "string"}}, "required": ["connection_id"]}},
     {"name": "vk_call_read", "description": "Вызов метода VK API только для чтения.", "inputSchema": {"type": "object", "properties": {"connection_id": {"type": "string"}, "method": {"type": "string"}, "params": {"type": "object"}}, "required": ["connection_id", "method"]}},
-    {"name": "vk_call", "description": "Универсальный вызов VK API; запись требует разрешения и confirm=true.", "inputSchema": {"type": "object", "properties": {"connection_id": {"type": "string"}, "method": {"type": "string"}, "params": {"type": "object"}, "confirm": {"type": "boolean"}}, "required": ["connection_id", "method"]}},
+    {"name": "vk_call", "description": "Универсальный вызов VK API. Запись работает, только если для подключения включена отправка, и требует confirm=true. Перед отправкой сообщения покажи пользователю текст и получатель и дождись его согласия.", "inputSchema": {"type": "object", "properties": {"connection_id": {"type": "string"}, "method": {"type": "string"}, "params": {"type": "object"}, "confirm": {"type": "boolean"}}, "required": ["connection_id", "method"]}},
 ]
 
 
