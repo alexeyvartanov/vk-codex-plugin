@@ -1,0 +1,26 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "vk-community-connector",
+  "version": "0.2.0",
+  "description": "Подключение сообществ ВКонтакте к Codex через локальный MCP. Только чтение, ключ не попадает в чат.",
+  "author": { "name": "Alexey Vartanov" },
+  "homepage": "https://github.com/alexeyvartanov/vk-codex-plugin",
+  "repository": "https://github.com/alexeyvartanov/vk-codex-plugin",
+  "license": "MIT",
+  "keywords": ["vk", "vkontakte", "community", "mcp"],
+  "skills": "./skills/",
+  "extensions": {
+    "com.openai": {
+      "requires_local_executor": true,
+      "onboardingSkill": "./skills/connect-vk/SKILL.md",
+      "interface": {
+        "displayName": "ВКонтакте для Codex",
+        "shortDescription": "Читать сообщения своего сообщества ВК",
+        "longDescription": "Подключает сообщество ВКонтакте к Codex на вашем компьютере. Ключ хранится только у вас и не попадает в чат. Запись в ВК выключена.",
+        "developerName": "Alexey Vartanov",
+        "category": "Productivity",
+        "defaultPrompt": "Подключи ВК"
+      }
+    }
+  }
+}

@@ -1,0 +1,9 @@
+__pycache__/
+*.pyc
+.DS_Store
+# ключи и личные настройки никогда не попадают в репозиторий
+**/tokens/
+**/pending.txt
+connections.json
+vk.env
+*.bak*

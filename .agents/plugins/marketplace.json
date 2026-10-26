@@ -1,0 +1,12 @@
+{
+  "name": "alexeyvartanov-plugins",
+  "interface": { "displayName": "Плагины Алексея Вартанова" },
+  "plugins": [
+    {
+      "name": "vk-community-connector",
+      "source": { "source": "local", "path": "./plugins/vk-community-connector" },
+      "policy": { "installation": "AVAILABLE" },
+      "category": "Productivity"
+    }
+  ]
+}
